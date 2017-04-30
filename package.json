@@ -1,0 +1,32 @@
+{
+  "name": "slack-tui",
+  "version": "1.0.0",
+  "description": "TUI-based Slack client.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "hikalium",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^7.0.14",
+    "blessed": "^0.1.81",
+    "slackbotapi": "^1.3.9"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hikalium/slack-tui.git"
+  },
+  "keywords": [
+    "Slack",
+    "Client",
+    "TUI",
+    "console",
+    "terminal"
+  ],
+  "bugs": {
+    "url": "https://github.com/hikalium/slack-tui/issues"
+  },
+  "homepage": "https://github.com/hikalium/slack-tui#readme"
+}
