@@ -15,24 +15,21 @@ var teamBox = blessed.list({
     border: {
         type: 'line'
     },
+    label: ' Teams ',
     style: {
-        //fg: 'white',
-        //bg: 'magenta',
         border: {
             fg: '#f0f0f0'
-        },
-        hover: {
-            bg: 'green'
         },
         selected: {
             bg: 'red'
         },
         focus: {
-            bg: 'yellow'
+            border: {
+                fg: '#00ff00'
+            }
         }
     },
     items: [
-        "Teams:",
         "日本語？",
         "hensyu2017",
     ],
@@ -54,16 +51,16 @@ var channelBox = blessed.list({
         border: {
             fg: '#f0f0f0'
         },
-        hover: {
-            bg: 'green'
-        },
         selected: {
             bg: 'red'
         },
         focus: {
-            bg: 'yellow'
+            border: {
+                fg: '#00ff00'
+            }
         }
     },
+    label: ' Channels ',
     items: [
         "Channels:",
         "日本語？",
@@ -87,16 +84,16 @@ var userBox = blessed.list({
         border: {
             fg: '#f0f0f0'
         },
-        hover: {
-            bg: 'green'
-        },
         selected: {
             bg: 'red'
         },
         focus: {
-            bg: 'yellow'
+            border: {
+                fg: '#00ff00'
+            }
         }
     },
+    label: ' Users ',
     items: [
         "Users:",
     ],
@@ -114,10 +111,13 @@ var contentBox = blessed.log({
         type: 'line'
     },
     style: {
-        //fg: 'white',
-        //bg: 'magenta',
         border: {
             fg: '#f0f0f0'
+        },
+        focus: {
+            border: {
+                fg: '#00ff00'
+            }
         }
     },
     keys: true,
@@ -136,12 +136,13 @@ var inputBox = blessed.textbox({
     },
     style: {
         fg: 'white',
-        //bg: 'magenta',
         border: {
             fg: '#f0f0f0'
         },
         focus: {
-            bg: 'yellow'
+            border: {
+                fg: '#00ff00'
+            }
         }
     },
     keys: true
@@ -149,7 +150,7 @@ var inputBox = blessed.textbox({
 sc.append(inputBox);
 inputBox.on('submit', function (text) {
     inputBox.clearValue();
-    contentBox.log(text);
+    contentBox.log("send[" + text + "]");
 });
 teamBox.on('select', function (el, selected) {
     contentBox.log(el.getText());
@@ -270,7 +271,7 @@ var SlackTeam = (function () {
         });
     };
     SlackTeam.prototype.refreshChannelList = function () {
-        var channelSelectorList = ['Channels:'];
+        var channelSelectorList = [];
         for (var k in this.channelList) {
             var t = this.channelList[k];
             channelSelectorList.push("-" + t[0]);
@@ -279,7 +280,7 @@ var SlackTeam = (function () {
         sc.render();
     };
     SlackTeam.prototype.refreshUserList = function () {
-        var list = ['Users:'];
+        var list = [];
         for (var _i = 0, _a = this.userList; _i < _a.length; _i++) {
             var t = _a[_i];
             list.push("-" + t[0]);
@@ -337,7 +338,7 @@ var SlackTUI = (function () {
         this.refreshTeamList();
     }
     SlackTUI.prototype.refreshTeamList = function () {
-        var teamSelectorList = ['Teams:'];
+        var teamSelectorList = [];
         for (var k in this.teamList) {
             var t = this.teamList[k];
             teamSelectorList.push("-" + t[1]);

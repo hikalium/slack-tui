@@ -18,24 +18,21 @@ var teamBox = blessed.list({
 	border: {
 		type: 'line'
 	},
+	label: ' Teams ',
 	style: {
-		//fg: 'white',
-		//bg: 'magenta',
 		border: {
 			fg: '#f0f0f0'
-		},
-		hover: {
-			bg: 'green'
 		},
 		selected: {
 			bg: 'red'
 		},
 		focus: {
-			bg: 'yellow'
+			border: {
+				fg: '#00ff00'
+			},
 		},
 	},
 	items: [
-		"Teams:",
 		"日本語？",
 		"hensyu2017",
 	],
@@ -59,16 +56,16 @@ var channelBox = blessed.list({
 		border: {
 			fg: '#f0f0f0'
 		},
-		hover: {
-			bg: 'green'
-		},
 		selected: {
 			bg: 'red'
 		},
 		focus: {
-			bg: 'yellow'
+			border: {
+				fg: '#00ff00'
+			},
 		},
 	},
+	label: ' Channels ',
 	items: [
 		"Channels:",
 		"日本語？",
@@ -93,16 +90,16 @@ var userBox = blessed.list({
 		border: {
 			fg: '#f0f0f0'
 		},
-		hover: {
-			bg: 'green'
-		},
 		selected: {
 			bg: 'red'
 		},
 		focus: {
-			bg: 'yellow'
+			border: {
+				fg: '#00ff00'
+			},
 		},
 	},
+	label: ' Users ',
 	items: [
 		"Users:",
 	],
@@ -121,14 +118,14 @@ var contentBox = blessed.log({
 		type: 'line'
 	},
 	style: {
-		//fg: 'white',
-		//bg: 'magenta',
 		border: {
 			fg: '#f0f0f0'
-		},/*
-		hover: {
-			bg: 'green'
-		}*/
+		},
+		focus: {
+			border: {
+				fg: '#00ff00'
+			},
+		},
 	},
 	keys: true,
 	scrollable: true,
@@ -147,15 +144,13 @@ var inputBox = blessed.textbox({
 	},
 	style: {
 		fg: 'white',
-		//bg: 'magenta',
 		border: {
 			fg: '#f0f0f0'
-		},/*
-		hover: {
-			bg: 'green'
-		}*/
+		},
 		focus: {
-			bg: 'yellow'
+			border: {
+				fg: '#00ff00'
+			},
 		},
 	},
 	keys: true,
@@ -165,7 +160,7 @@ sc.append(inputBox);
 
 inputBox.on('submit', function(text){
 	inputBox.clearValue();
-	contentBox.log(text); 
+	contentBox.log("send[" + text + "]"); 
 });
 
 teamBox.on('select', function(el, selected){
@@ -301,7 +296,7 @@ class SlackTeam
 		});
 	}
 	refreshChannelList(){
-		var channelSelectorList = ['Channels:'];
+		var channelSelectorList = [];
 		for(var k in this.channelList){
 			var t = this.channelList[k];
 			channelSelectorList.push("-" + t[0]);
@@ -310,7 +305,7 @@ class SlackTeam
 		sc.render();
 	}
 	refreshUserList(){
-		var list = ['Users:'];
+		var list = [];
 		for(var t of this.userList){
 			list.push("-" + t[0]);
 		}
@@ -364,7 +359,7 @@ class SlackTUI
 		this.refreshTeamList();
 	}
 	refreshTeamList(){
-		var teamSelectorList = ['Teams:'];
+		var teamSelectorList = [];
 		for(var k in this.teamList){
 			var t = this.teamList[k];
 			teamSelectorList.push("-" + t[1]);
