@@ -1,214 +1,7 @@
-var blessed = require('blessed');
-// Create a screen object.
-var sc = blessed.screen({
-    smartCSR: true,
-    fullUnicode: true,
-    dockBorders: true
-});
-sc.title = 'slack-tui';
-var teamBox = blessed.list({
-    top: 0,
-    left: 0,
-    width: '25%',
-    height: '25%+1',
-    tags: true,
-    border: {
-        type: 'line'
-    },
-    label: ' Teams ',
-    style: {
-        border: {
-            fg: '#f0f0f0'
-        },
-        selected: {
-            bg: 'red'
-        },
-        focus: {
-            border: {
-                fg: '#00ff00'
-            }
-        }
-    },
-    items: [
-        "日本語？",
-        "hensyu2017",
-    ],
-    keys: true
-});
-sc.append(teamBox);
-var channelBox = blessed.list({
-    top: '25%',
-    left: 0,
-    width: '25%',
-    height: '25%+1',
-    tags: true,
-    border: {
-        type: 'line'
-    },
-    style: {
-        //fg: 'white',
-        //bg: 'magenta',
-        border: {
-            fg: '#f0f0f0'
-        },
-        selected: {
-            bg: 'red'
-        },
-        focus: {
-            border: {
-                fg: '#00ff00'
-            }
-        }
-    },
-    label: ' Channels ',
-    items: [
-        "Channels:",
-        "日本語？",
-        "hensyu2017",
-    ],
-    keys: true
-});
-sc.append(channelBox);
-var userBox = blessed.list({
-    top: '50%',
-    left: 0,
-    width: '25%',
-    height: '50%',
-    tags: true,
-    border: {
-        type: 'line'
-    },
-    style: {
-        //fg: 'white',
-        //bg: 'magenta',
-        border: {
-            fg: '#f0f0f0'
-        },
-        selected: {
-            bg: 'red'
-        },
-        focus: {
-            border: {
-                fg: '#00ff00'
-            }
-        }
-    },
-    label: ' Users ',
-    items: [
-        "Users:",
-    ],
-    keys: true
-});
-sc.append(userBox);
-var contentBox = blessed.log({
-    top: 0,
-    left: '25%',
-    width: '75%',
-    height: '80%+1',
-    content: 'Hello {bold}world{/bold}!',
-    tags: true,
-    border: {
-        type: 'line'
-    },
-    style: {
-        border: {
-            fg: '#f0f0f0'
-        },
-        focus: {
-            border: {
-                fg: '#00ff00'
-            }
-        }
-    },
-    keys: true,
-    scrollable: true
-});
-sc.append(contentBox);
-var inputBox = blessed.textbox({
-    top: '80%',
-    left: '25%',
-    width: '75%',
-    height: '20%+1',
-    content: 'Hello {bold}world{/bold}!',
-    tags: true,
-    border: {
-        type: 'line'
-    },
-    style: {
-        fg: 'white',
-        border: {
-            fg: '#f0f0f0'
-        },
-        focus: {
-            border: {
-                fg: '#00ff00'
-            }
-        }
-    },
-    keys: true
-});
-sc.append(inputBox);
-inputBox.on('submit', function (text) {
-    inputBox.clearValue();
-    contentBox.log("send[" + text + "]");
-});
-teamBox.on('select', function (el, selected) {
-    contentBox.log(el.getText());
-});
-// Add a png icon to the box
-/*
-var icon = blessed.image({
-    parent: contentBox,
-    top: 0,
-    left: 0,
-    type: 'ansi',
-    width: '50%',
-    height: '25%',
-    file: '2017_spring.png',
-    search: false
-});
-*/
-// If our box is clicked, change the content.
-/*
-box.on('click', function(data) {
-    box.setContent('{center}Some different {red-fg}content{/red-fg}.{/center}');
-    screen.render();
-});
-
-// If box is focused, handle `enter`/`return` and give us some more content.
-box.key('enter', function(ch, key) {
-    box.setContent('{right}Even different {black-fg}content{/black-fg}.{/right}\n');
-    box.setLine(1, 'bar');
-    box.insertLine(1, 'foo');
-    screen.render();
-});
-*/
-// Quit on Escape, q, or Control-C.
-sc.key(['C-c'], function (ch, key) {
-    return process.exit(0);
-});
-sc.key(['t'], function (ch, key) {
-    teamBox.focus();
-});
-teamBox.key(['tab'], function (ch, key) {
-    channelBox.focus();
-});
-channelBox.key(['tab'], function (ch, key) {
-    inputBox.focus();
-});
-inputBox.key(['tab'], function (ch, key) {
-    contentBox.focus();
-});
-contentBox.key(['tab'], function (ch, key) {
-    teamBox.focus();
-});
-// Focus our element.
-teamBox.focus();
-// Render the screen.
-sc.render();
 var SlackTeam = (function () {
-    function SlackTeam(config) {
+    function SlackTeam(config, tui) {
         this.name = "";
+        this.tui = tui;
         this.name = config[1];
         this.token = config[0];
         this.connection = new SlackTeam.SlackAPI({
@@ -237,7 +30,6 @@ var SlackTeam = (function () {
             that.refreshChannelList();
         });
         this.connection.reqAPI('users.list', { token: this.token }, function (data) {
-            contentBox.log(JSON.stringify(data, null, " ").substr(0, 500));
             if (data.ok) {
                 that.userList = data.members.map(function (e) { return [e.name, e.id]; });
                 //contentBox.log(JSON.stringify(that.userList, null, " ").substr(0, 100));
@@ -249,7 +41,7 @@ var SlackTeam = (function () {
         var that = this;
         this.connection.on('message', function (data) {
             // receive
-            contentBox.log(JSON.stringify(data, null, " "));
+            //contentBox.log(JSON.stringify(data, null, " "));
             /*
             if (!data || !data.text)
                 return;
@@ -261,35 +53,33 @@ var SlackTeam = (function () {
             m.context = data.channel;
             m.driver = that;
             m.rawData = data;
-            //
+        //
             if (m.senderName == that.bot.settings.profile.name)
                 return;
-            //
-            //
+        //
+        //
             that.bot.receive(m);
              */
         });
     };
     SlackTeam.prototype.refreshChannelList = function () {
-        var channelSelectorList = [];
-        for (var k in this.channelList) {
-            var t = this.channelList[k];
-            channelSelectorList.push("-" + t[0]);
+        this.channelSelectorList = [];
+        for (var _i = 0, _a = this.channelList; _i < _a.length; _i++) {
+            var t = _a[_i];
+            this.channelSelectorList.push(t[0]);
         }
-        channelBox.setItems(channelSelectorList);
-        sc.render();
+        this.tui.requestUpdateChannelList(this);
     };
     SlackTeam.prototype.refreshUserList = function () {
-        var list = [];
+        this.userSelectorList = [];
         for (var _i = 0, _a = this.userList; _i < _a.length; _i++) {
             var t = _a[_i];
-            list.push("-" + t[0]);
+            this.userSelectorList.push(t[0]);
         }
-        userBox.setItems(list);
-        sc.render();
+        this.tui.requestUpdateUserList(this);
     };
     SlackTeam.prototype.selectChannel = function (channelName) {
-        var that = this;
+        var _this = this;
         var chid = null;
         for (var _i = 0, _a = this.channelList; _i < _a.length; _i++) {
             var t = _a[_i];
@@ -299,16 +89,16 @@ var SlackTeam = (function () {
         }
         if (!chid)
             return;
+        this.tui.requestClearContentBox(this);
+        this.tui.requestSetLabelOfContentBox(this, channelName);
+        this.tui.requestLogToContentBox(this, "Loading...");
         this.connection.reqAPI('channels.history', { channel: chid }, function (data) {
-            var messages = contentBox.log(JSON.stringify(data, null, " ").substr(0, 500));
             if (data.ok) {
                 var messages = data.messages.map(function (e) {
-                    return that.getUserName(e.user) + ":\t" + e.text;
-                });
-                var messages = messages.reverse();
-                contentBox.log(messages.join("\n"));
+                    return (_this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
+                }).reverse();
+                _this.tui.requestLogToContentBox(_this, messages.join("\n"));
             }
-            //that.refreshChannelList();
         });
     };
     SlackTeam.prototype.getUserName = function (userID) {
@@ -322,35 +112,247 @@ var SlackTeam = (function () {
     return SlackTeam;
 }());
 SlackTeam.SlackAPI = require('slackbotapi');
+var SlackTUIView = (function () {
+    function SlackTUIView(tui) {
+        var _this = this;
+        this.tui = tui;
+        var blessed = require('blessed');
+        // Create a screen object.
+        this.screen = blessed.screen({
+            smartCSR: true,
+            fullUnicode: true,
+            dockBorders: true
+        });
+        this.screen.title = 'slack-tui';
+        this.teamBox = blessed.list({
+            top: 0,
+            left: 0,
+            width: '25%',
+            height: '25%+1',
+            tags: true,
+            border: {
+                type: 'line'
+            },
+            label: ' Teams ',
+            style: {
+                border: {
+                    fg: '#f0f0f0'
+                },
+                selected: {
+                    bg: 'red'
+                },
+                focus: {
+                    border: {
+                        fg: '#00ff00'
+                    }
+                }
+            },
+            keys: true
+        });
+        this.screen.append(this.teamBox);
+        this.channelBox = blessed.list({
+            top: '25%',
+            left: 0,
+            width: '25%',
+            height: '25%+1',
+            tags: true,
+            border: {
+                type: 'line'
+            },
+            style: {
+                //fg: 'white',
+                //bg: 'magenta',
+                border: {
+                    fg: '#f0f0f0'
+                },
+                selected: {
+                    bg: 'red'
+                },
+                focus: {
+                    border: {
+                        fg: '#00ff00'
+                    }
+                }
+            },
+            label: ' Channels ',
+            keys: true
+        });
+        this.screen.append(this.channelBox);
+        this.userBox = blessed.list({
+            top: '50%',
+            left: 0,
+            width: '25%',
+            height: '50%',
+            tags: true,
+            border: {
+                type: 'line'
+            },
+            style: {
+                //fg: 'white',
+                //bg: 'magenta',
+                border: {
+                    fg: '#f0f0f0'
+                },
+                selected: {
+                    bg: 'red'
+                },
+                focus: {
+                    border: {
+                        fg: '#00ff00'
+                    }
+                }
+            },
+            label: ' Users ',
+            keys: true
+        });
+        this.screen.append(this.userBox);
+        this.contentBox = blessed.log({
+            top: 0,
+            left: '25%',
+            width: '75%',
+            height: '80%+1',
+            content: 'Hello {bold}world{/bold}!',
+            tags: true,
+            border: {
+                type: 'line'
+            },
+            style: {
+                border: {
+                    fg: '#f0f0f0'
+                },
+                focus: {
+                    border: {
+                        fg: '#00ff00'
+                    }
+                }
+            },
+            keys: true,
+            scrollable: true
+        });
+        this.screen.append(this.contentBox);
+        this.inputBox = blessed.textbox({
+            top: '80%',
+            left: '25%',
+            width: '75%',
+            height: '20%+1',
+            content: 'Hello {bold}world{/bold}!',
+            tags: true,
+            border: {
+                type: 'line'
+            },
+            style: {
+                fg: 'white',
+                border: {
+                    fg: '#f0f0f0'
+                },
+                focus: {
+                    border: {
+                        fg: '#00ff00'
+                    }
+                }
+            },
+            keys: true
+        });
+        this.screen.append(this.inputBox);
+        this.inputBox.on('submit', function (text) {
+            _this.inputBox.clearValue();
+            _this.contentBox.log("send[" + text + "]");
+        });
+        this.teamBox.on('select', function (el, selected) {
+            var teamName = el.getText();
+            _this.tui.focusTeamByName(teamName);
+        });
+        this.channelBox.on('select', function (el, selected) {
+            //contentBox.log(el.getText());
+            _this.tui.focusedTeam.selectChannel(el.getText());
+        });
+        this.screen.key(['C-c'], function (ch, key) {
+            return process.exit(0);
+        });
+        this.screen.key(['t'], function (ch, key) {
+            _this.teamBox.focus();
+        });
+        this.teamBox.key(['tab'], function (ch, key) {
+            _this.channelBox.focus();
+        });
+        this.channelBox.key(['tab'], function (ch, key) {
+            _this.inputBox.focus();
+        });
+        this.inputBox.key(['tab'], function (ch, key) {
+            _this.contentBox.focus();
+        });
+        this.contentBox.key(['tab'], function (ch, key) {
+            _this.teamBox.focus();
+        });
+        this.teamBox.focus();
+        this.screen.render();
+    }
+    return SlackTUIView;
+}());
 var SlackTUI = (function () {
     function SlackTUI() {
         this.fs = require("fs");
         this.configFile = "teamlist.json";
-        this.teamList = [];
+        this.tokenList = [];
+        this.teamDict = {};
         this.focusedTeam = null;
+        this.view = new SlackTUIView(this);
         try {
             var fval = this.fs.readFileSync(this.configFile);
-            this.teamList = JSON.parse(fval);
+            this.tokenList = JSON.parse(fval);
         }
         catch (e) {
-            contentBox.log("Error: failed to read " + this.configFile);
+            this.view.contentBox.log("Error: failed to read " + this.configFile);
         }
         this.refreshTeamList();
     }
     SlackTUI.prototype.refreshTeamList = function () {
         var teamSelectorList = [];
-        for (var k in this.teamList) {
-            var t = this.teamList[k];
-            teamSelectorList.push("-" + t[1]);
-            this.focusedTeam = new SlackTeam(t);
+        for (var _i = 0, _a = this.tokenList; _i < _a.length; _i++) {
+            var t = _a[_i];
+            teamSelectorList.push(t[1]);
+            var team = new SlackTeam(t, this);
+            this.teamDict[t[1]] = team;
         }
-        teamBox.setItems(teamSelectorList);
-        sc.render();
+        this.view.teamBox.setItems(teamSelectorList);
+        this.view.screen.render();
+    };
+    SlackTUI.prototype.requestUpdateChannelList = function (team) {
+        if (this.focusedTeam !== team)
+            return;
+        this.view.channelBox.setItems(team.channelSelectorList);
+        this.view.screen.render();
+    };
+    SlackTUI.prototype.requestUpdateUserList = function (team) {
+        if (this.focusedTeam !== team)
+            return;
+        this.view.userBox.setItems(team.userSelectorList);
+        this.view.screen.render();
+    };
+    SlackTUI.prototype.requestLogToContentBox = function (team, data) {
+        if (this.focusedTeam !== team)
+            return;
+        this.view.contentBox.log(data);
+        //this.screen.render();
+    };
+    SlackTUI.prototype.requestClearContentBox = function (team) {
+        if (this.focusedTeam !== team)
+            return;
+        this.view.contentBox.setContent("");
+    };
+    SlackTUI.prototype.requestSetLabelOfContentBox = function (team, label) {
+        if (this.focusedTeam !== team)
+            return;
+        this.view.contentBox.setLabel(" " + label + " ");
+        this.view.contentBox.render();
+    };
+    SlackTUI.prototype.focusTeamByName = function (teamName) {
+        if (this.teamDict[teamName]) {
+            this.focusedTeam = this.teamDict[teamName];
+        }
+        this.requestUpdateChannelList(this.focusedTeam);
+        this.requestUpdateUserList(this.focusedTeam);
     };
     return SlackTUI;
 }());
 var slackTUI = new SlackTUI();
-channelBox.on('select', function (el, selected) {
-    //contentBox.log(el.getText());
-    slackTUI.focusedTeam.selectChannel(el.getText().substr(1));
-});
