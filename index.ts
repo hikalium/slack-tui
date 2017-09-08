@@ -5,6 +5,7 @@ class SlackTeam
 	name: string = "";
 	connection;
 	channelList;
+	currentChannelName;
 	token: string;
 	userList;
 	tui: SlackTUI;
@@ -18,74 +19,44 @@ class SlackTeam
 			'logging': false,
 			'autoReconnect': true
 		});
-		this.connect();
-		/*
-		this.connection.reqAPI('groups.list', {token: config[0]}, function(data){
-			contentBox.log(JSON.stringify(data, null, " ").substr(0, 500));
-			if(data.ok){
-				var groupList = data.groups.map(function(e){return e.name});
-				contentBox.log(JSON.stringify(groupList, null, " ").substr(0, 100));
-				contentBox.log(JSON.stringify(data.channels, null, " "));
-			}
-		});
-		 */
-		var that = this;
-		this.connection.reqAPI('channels.list', {token: this.token}, function(data){
-			//contentBox.log(JSON.stringify(data, null, " ").substr(0, 500));
-			if(data.ok){
-				that.channelList = data.channels.map(function(e){return [e.name, e.id]});
-				//contentBox.log(JSON.stringify(that.channelList, null, " ").substr(0, 100));
-			}
-			that.refreshChannelList();
-		});
-		this.connection.reqAPI('users.list', {token: this.token}, function(data){
-			if(data.ok){
-				that.userList = data.members.map(function(e){return [e.name, e.id]});
-				//contentBox.log(JSON.stringify(that.userList, null, " ").substr(0, 100));
-			}
-			that.refreshUserList();
-		});
+		this.setRTMHandler();
+		this.updateChannelList();
+		this.updateUserList();
 	}
-	connect() {
-		var that = this;
-		this.connection.on('message', function (data) {
-			// receive
-			//contentBox.log(JSON.stringify(data, null, " "));
-			/*
-			if (!data || !data.text)
-				return;
-			if ("subtype" in data && data.subtype === "bot_message")
-				return;
-			var m = new DeborahMessage();
-			m.text = data.text;
-			m.senderName = that.getUsername(data);
-			m.context = data.channel;
-			m.driver = that;
-			m.rawData = data;
-		//
-			if (m.senderName == that.bot.settings.profile.name)
-				return;
-		//
-		//
-			that.bot.receive(m);
-			 */
+	setRTMHandler() {
+		this.connection.on('message', (data) => {
+			// TODO: Improve performance (change to append new message only)
+			if(!this.tui.isTeamFocused(this)) return;
+			this.selectChannel(this.currentChannelName);
 		});
 	}
 	channelSelectorList;
-	refreshChannelList(){
-		this.channelSelectorList = [];
-		for(var t of this.channelList){
-			this.channelSelectorList.push(t[0]);
-		}
-		this.tui.requestUpdateChannelList(this);
+	private updateChannelList(){
+		this.connection.reqAPI('channels.list', {token: this.token}, (data) => {
+			if(!data.ok) return;
+			this.channelList = data.channels.map(function(e){
+				return [e.name, e.id];
+			});
+			this.channelSelectorList = [];
+			for(var t of this.channelList){
+				this.channelSelectorList.push(t[0]);
+			}
+			this.tui.requestUpdateChannelList(this);
+		});
 	}
 	userSelectorList;
-	refreshUserList(){
-		this.userSelectorList = [];
-		for(var t of this.userList){
-			this.userSelectorList.push(t[0]);
-		}
-		this.tui.requestUpdateUserList(this);
+	private updateUserList(){
+		this.connection.reqAPI('users.list', {token: this.token}, (data) => {
+			if(!data.ok) return;
+			this.userList = data.members.map(function(e){
+				return [e.name, e.id];
+			});
+			this.userSelectorList = [];
+			for(var t of this.userList){
+				this.userSelectorList.push(t[0]);
+			}
+			this.tui.requestUpdateUserList(this);
+		});
 	}
 	selectChannel(channelName: string){
 		var chid = null;
@@ -95,16 +66,17 @@ class SlackTeam
 			}
 		}
 		if(!chid) return;
+		this.currentChannelName = channelName;
 		this.tui.requestClearContentBox(this);
-		this.tui.requestSetLabelOfContentBox(this, channelName);
+		this.tui.requestSetLabelOfContentBox(this, this.name + "/" + channelName);
 		this.tui.requestLogToContentBox(this, "Loading...");
 		this.connection.reqAPI('channels.history', {channel: chid}, (data) => {
-			if(data.ok){
-				var messages = data.messages.map((e) => {
-					return (this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
-				}).reverse();
-				this.tui.requestLogToContentBox(this, messages.join("\n"));
-			}
+			if(!data.ok) return;
+			this.tui.requestClearContentBox(this);
+			var messages = data.messages.map((e) => {
+				return (this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
+			}).reverse();
+			this.tui.requestLogToContentBox(this, messages.join("\n"));
 		});
 	}
 	getUserName(userID: string){
@@ -228,7 +200,11 @@ class SlackTUIView
 			left: '25%',
 			width: '75%',
 			height: '80%+1',
-			content: 'Hello {bold}world{/bold}!',
+			content: `
+{green-bg}Welcome to SlackTUI!{/green-bg}
+Use {red-fg}Tab{/red-fg} key to move box focus.
+Use cursor keys to choose item.
+			`,
 			tags: true,
 			border: {
 				type: 'line'
@@ -324,7 +300,7 @@ class SlackTUI
 	configFile = "teamlist.json";
 	tokenList = [];
 	teamDict: {[key: string]: SlackTeam} = {};
-	focusedTeam: SlackTeam = null;
+	private focusedTeam: SlackTeam = null;
 	view: SlackTUIView;
 	constructor(){
 		this.view = new SlackTUIView(this);
@@ -346,27 +322,30 @@ class SlackTUI
 		this.view.teamBox.setItems(teamSelectorList);
 		this.view.screen.render();
 	}
+	isTeamFocused(team: SlackTeam){
+		return (this.focusedTeam === team);
+	}
 	requestUpdateChannelList(team: SlackTeam){
-		if(this.focusedTeam !== team) return;
+		if(!this.isTeamFocused(team)) return;
 		this.view.channelBox.setItems(team.channelSelectorList);
 		this.view.screen.render();
 	}
 	requestUpdateUserList(team: SlackTeam){
-		if(this.focusedTeam !== team) return;
+		if(!this.isTeamFocused(team)) return;
 		this.view.userBox.setItems(team.userSelectorList);
 		this.view.screen.render();
 	}
 	requestLogToContentBox(team: SlackTeam, data: string){
-		if(this.focusedTeam !== team) return;
+		if(!this.isTeamFocused(team)) return;
 		this.view.contentBox.log(data);
 		//this.screen.render();
 	}
 	requestClearContentBox(team: SlackTeam){
-		if(this.focusedTeam !== team) return;
+		if(!this.isTeamFocused(team)) return;
 		this.view.contentBox.setContent("");
 	}
 	requestSetLabelOfContentBox(team: SlackTeam, label: string){
-		if(this.focusedTeam !== team) return;
+		if(!this.isTeamFocused(team)) return;
 		this.view.contentBox.setLabel(" " + label + " ");
 		this.view.contentBox.render();
 	}
