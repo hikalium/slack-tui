@@ -248,6 +248,7 @@ var SlackTUIView = (function () {
         this.screen.append(this.inputBox);
         this.inputBox.on('submit', function (text) {
             _this.inputBox.clearValue();
+            _this.inputBox.cancel();
             _this.tui.sendMessage(text);
         });
         this.teamBox.on('select', function (el, selected) {

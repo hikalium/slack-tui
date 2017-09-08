@@ -265,10 +265,12 @@ Use cursor keys to choose item.
 
 		this.inputBox.on('submit', (text) => {
 			this.inputBox.clearValue();
+			this.inputBox.cancel();
 			this.tui.sendMessage(text);
 		});
 
 		this.teamBox.on('select', (el, selected) => {
+
 			var teamName = el.getText();
 			this.tui.focusTeamByName(teamName);
 		});
