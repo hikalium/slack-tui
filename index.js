@@ -66,6 +66,7 @@ var SlackTeam = (function () {
         if (!chid)
             return;
         this.currentChannelName = channelName;
+        this.currentChannelID = chid;
         this.tui.requestClearContentBox(this);
         this.tui.requestSetLabelOfContentBox(this, this.name + "/" + channelName);
         this.tui.requestLogToContentBox(this, "Loading...");
@@ -86,6 +87,19 @@ var SlackTeam = (function () {
                 return u[0];
         }
         return null;
+    };
+    SlackTeam.prototype.sendMessage = function (text) {
+        if (!this.currentChannelID)
+            return;
+        this.postMessage(this.currentChannelID, text);
+    };
+    SlackTeam.prototype.postMessage = function (channelID, text) {
+        var data = new Object();
+        data.text = text;
+        data.channel = channelID;
+        data.as_user = true;
+        // APIのchat.postMessageを使ってメッセージを送信する
+        this.connection.reqAPI("chat.postMessage", data);
     };
     return SlackTeam;
 }());
@@ -234,7 +248,7 @@ var SlackTUIView = (function () {
         this.screen.append(this.inputBox);
         this.inputBox.on('submit', function (text) {
             _this.inputBox.clearValue();
-            _this.contentBox.log("send[" + text + "]");
+            _this.tui.sendMessage(text);
         });
         this.teamBox.on('select', function (el, selected) {
             var teamName = el.getText();
@@ -333,6 +347,11 @@ var SlackTUI = (function () {
         }
         this.requestUpdateChannelList(this.focusedTeam);
         this.requestUpdateUserList(this.focusedTeam);
+    };
+    SlackTUI.prototype.sendMessage = function (text) {
+        if (!this.focusedTeam)
+            return;
+        this.focusedTeam.sendMessage(text);
     };
     return SlackTUI;
 }());

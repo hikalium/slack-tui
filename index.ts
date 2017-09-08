@@ -6,6 +6,7 @@ class SlackTeam
 	connection;
 	channelList;
 	currentChannelName;
+	currentChannelID;
 	token: string;
 	userList;
 	tui: SlackTUI;
@@ -67,6 +68,7 @@ class SlackTeam
 		}
 		if(!chid) return;
 		this.currentChannelName = channelName;
+		this.currentChannelID = chid;
 		this.tui.requestClearContentBox(this);
 		this.tui.requestSetLabelOfContentBox(this, this.name + "/" + channelName);
 		this.tui.requestLogToContentBox(this, "Loading...");
@@ -84,6 +86,18 @@ class SlackTeam
 			if(u[1] === userID) return u[0];
 		}
 		return null;
+	}
+	sendMessage(text: string){
+		if(!this.currentChannelID) return;
+		this.postMessage(this.currentChannelID, text);
+	}
+	private postMessage(channelID, text){
+		var data: any = new Object();
+		data.text = text;
+		data.channel = channelID;
+		data.as_user = true;
+		// APIのchat.postMessageを使ってメッセージを送信する
+		this.connection.reqAPI("chat.postMessage", data);
 	}
 }
 
@@ -251,7 +265,7 @@ Use cursor keys to choose item.
 
 		this.inputBox.on('submit', (text) => {
 			this.inputBox.clearValue();
-			this.contentBox.log("send[" + text + "]"); 
+			this.tui.sendMessage(text);
 		});
 
 		this.teamBox.on('select', (el, selected) => {
@@ -356,7 +370,10 @@ class SlackTUI
 		this.requestUpdateChannelList(this.focusedTeam);
 		this.requestUpdateUserList(this.focusedTeam);
 	}
-
+	sendMessage(text: string){
+		if(!this.focusedTeam) return;
+		this.focusedTeam.sendMessage(text);
+	}
 }
 
 var slackTUI = new SlackTUI();
