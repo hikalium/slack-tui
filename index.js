@@ -1,3 +1,22 @@
+#!/usr/local/bin/node
+var SlackChannel = (function () {
+    function SlackChannel(id) {
+        this.id = id;
+    }
+    SlackChannel.prototype.updateInfo = function (connection) {
+        /*
+        this.connection.reqAPI('channels.history', {channel: chid}, (data) => {
+            if(!data.ok) return;
+            this.tui.requestClearContentBox(this);
+            var messages = data.messages.map((e) => {
+                return (this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
+            }).reverse();
+            this.tui.requestLogToContentBox(this, messages.join("\n"));
+        });
+         */
+    };
+    return SlackChannel;
+}());
 var SlackTeam = (function () {
     function SlackTeam(config, tui) {
         this.name = "";

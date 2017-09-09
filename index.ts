@@ -1,3 +1,25 @@
+#!/usr/local/bin/node
+
+class SlackChannel
+{
+	id: string;
+	name: string;
+	constructor(id: string){
+		this.id = id;
+	}
+	updateInfo(connection){
+		/*
+		this.connection.reqAPI('channels.history', {channel: chid}, (data) => {
+			if(!data.ok) return;
+			this.tui.requestClearContentBox(this);
+			var messages = data.messages.map((e) => {
+				return (this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
+			}).reverse();
+			this.tui.requestLogToContentBox(this, messages.join("\n"));
+		});
+		 */
+	}
+}
 
 class SlackTeam
 {
