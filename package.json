@@ -1,6 +1,6 @@
 {
   "name": "slack-tui",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "TUI-based Slack client.",
   "main": "index.js",
   "scripts": {
