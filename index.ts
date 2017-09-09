@@ -335,7 +335,9 @@ Use cursor keys to choose item.
 class SlackTUI
 {
 	fs = require("fs");
-	configFile = "teamlist.json";
+	configFile = 
+		process.env[process.platform == "win32" ? "USERPROFILE" : "HOME"] 
+		+ "/.teamlist.json";
 	tokenList = [];
 	teamDict: {[key: string]: SlackTeam} = {};
 	private focusedTeam: SlackTeam = null;
@@ -346,7 +348,10 @@ class SlackTUI
 			var fval = this.fs.readFileSync(this.configFile);
 			this.tokenList = JSON.parse(fval);
 		} catch(e){
-			this.view.contentBox.log("Error: failed to read " + this.configFile);
+			this.view.contentBox.log(
+				"Error: failed to read " + this.configFile);
+			this.view.contentBox.log(
+				"Please read https://github.com/hikalium/slack-tui/blob/master/README.md carefully.");
 		}
 		this.refreshTeamList();
 	}

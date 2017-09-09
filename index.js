@@ -304,7 +304,8 @@ var SlackTUIView = (function () {
 var SlackTUI = (function () {
     function SlackTUI() {
         this.fs = require("fs");
-        this.configFile = "teamlist.json";
+        this.configFile = process.env[process.platform == "win32" ? "USERPROFILE" : "HOME"]
+            + "/.teamlist.json";
         this.tokenList = [];
         this.teamDict = {};
         this.focusedTeam = null;
@@ -315,6 +316,7 @@ var SlackTUI = (function () {
         }
         catch (e) {
             this.view.contentBox.log("Error: failed to read " + this.configFile);
+            this.view.contentBox.log("Please read https://github.com/hikalium/slack-tui/blob/master/README.md carefully.");
         }
         this.refreshTeamList();
     }

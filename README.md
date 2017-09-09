@@ -1,16 +1,19 @@
 # slack-tui
 TUI-based client for Slack
 
-## setup
+## Setup
 
-Run `npm install` first.
+First, run `npm install -g slack-tui`
 
-Second, create `teamlist.json` under the project root.
+Second, create `~/.teamlist.json`.
+
 ```
 [
 	["your-api-token-1", "your-team-name-1"],
 	["your-api-token-2", "your-team-name-2"]
 ]
-
 ```
-Then exec `npm start` to launch slack-tui!
+
+You can get your api keys from https://api.slack.com/custom-integrations/legacy-tokens
+
+Now, simply run `slack-tui` !
