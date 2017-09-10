@@ -24,8 +24,7 @@ class SlackTeam
 	name: string = "";
 	connection;
 	channelList: SlackChannel[] = [];
-	currentChannelName;
-	currentChannelID;
+	currentChannel: SlackChannel;
 	token: string;
 	userList;
 	tui: SlackTUI;
@@ -47,7 +46,7 @@ class SlackTeam
 		this.connection.on('message', (data) => {
 			// TODO: Improve performance (change to append new message only)
 			if(!this.tui.isTeamFocused(this)) return;
-			this.selectChannel(this.currentChannelName);
+			this.selectChannel(this.currentChannel.name);
 		});
 	}
 	channelSelectorList;
@@ -89,8 +88,7 @@ class SlackTeam
 	selectChannel(channelName: string){
 		var ch = this.getChannelByName(channelName);
 		if(!ch) return;
-		this.currentChannelName = ch.name;
-		this.currentChannelID = ch.id;
+		this.currentChannel = ch;
 		this.tui.requestClearContentBox(this);
 		this.tui.requestSetLabelOfContentBox(this, this.name + "/" + ch.name);
 		this.tui.requestLogToContentBox(this, "Loading...");
@@ -110,8 +108,8 @@ class SlackTeam
 		return null;
 	}
 	sendMessage(text: string){
-		if(!this.currentChannelID) return;
-		this.postMessage(this.currentChannelID, text);
+		if(!this.currentChannel) return;
+		this.postMessage(this.currentChannel.id, text);
 	}
 	private postMessage(channelID, text){
 		var data: any = new Object();

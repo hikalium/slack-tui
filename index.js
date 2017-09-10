@@ -37,7 +37,7 @@ var SlackTeam = (function () {
             // TODO: Improve performance (change to append new message only)
             if (!_this.tui.isTeamFocused(_this))
                 return;
-            _this.selectChannel(_this.currentChannelName);
+            _this.selectChannel(_this.currentChannel.name);
         });
     };
     SlackTeam.prototype.updateChannelList = function () {
@@ -86,8 +86,7 @@ var SlackTeam = (function () {
         var ch = this.getChannelByName(channelName);
         if (!ch)
             return;
-        this.currentChannelName = ch.name;
-        this.currentChannelID = ch.id;
+        this.currentChannel = ch;
         this.tui.requestClearContentBox(this);
         this.tui.requestSetLabelOfContentBox(this, this.name + "/" + ch.name);
         this.tui.requestLogToContentBox(this, "Loading...");
@@ -110,9 +109,9 @@ var SlackTeam = (function () {
         return null;
     };
     SlackTeam.prototype.sendMessage = function (text) {
-        if (!this.currentChannelID)
+        if (!this.currentChannel)
             return;
-        this.postMessage(this.currentChannelID, text);
+        this.postMessage(this.currentChannel.id, text);
     };
     SlackTeam.prototype.postMessage = function (channelID, text) {
         var data = new Object();
