@@ -4,20 +4,17 @@ class SlackChannel
 {
 	id: string;
 	name: string;
-	constructor(id: string){
+	unread_count: number;
+	constructor(id: string, name: string){
 		this.id = id;
+		this.name = name;
 	}
 	updateInfo(connection){
-		/*
-		this.connection.reqAPI('channels.history', {channel: chid}, (data) => {
+		connection.reqAPI('channels.info', {channel: this.id}, (data) => {
 			if(!data.ok) return;
-			this.tui.requestClearContentBox(this);
-			var messages = data.messages.map((e) => {
-				return (this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
-			}).reverse();
-			this.tui.requestLogToContentBox(this, messages.join("\n"));
+			this.name = data.channel.name;
+			this.unread_count = data.channel.unread_count;
 		});
-		 */
 	}
 }
 
@@ -26,7 +23,7 @@ class SlackTeam
 	static SlackAPI = require('slackbotapi');
 	name: string = "";
 	connection;
-	channelList;
+	channelList: SlackChannel[] = [];
 	currentChannelName;
 	currentChannelID;
 	token: string;
@@ -58,11 +55,12 @@ class SlackTeam
 		this.connection.reqAPI('channels.list', {token: this.token}, (data) => {
 			if(!data.ok) return;
 			this.channelList = data.channels.map(function(e){
-				return [e.name, e.id];
+				return new SlackChannel(e.id, e.name);
 			});
 			this.channelSelectorList = [];
-			for(var t of this.channelList){
-				this.channelSelectorList.push(t[0]);
+			for(var ch of this.channelList){
+				ch.updateInfo(this.connection);
+				this.channelSelectorList.push(ch.name);
 			}
 			this.tui.requestUpdateChannelList(this);
 		});
@@ -81,20 +79,22 @@ class SlackTeam
 			this.tui.requestUpdateUserList(this);
 		});
 	}
-	selectChannel(channelName: string){
-		var chid = null;
-		for(var t of this.channelList){
-			if(t[0] == channelName){
-				chid = t[1];
-			}
+	getChannelByName(channelName: string): SlackChannel
+	{
+		for(var ch of this.channelList){
+			if(ch.name == channelName) return ch;
 		}
-		if(!chid) return;
-		this.currentChannelName = channelName;
-		this.currentChannelID = chid;
+		return null;
+	}
+	selectChannel(channelName: string){
+		var ch = this.getChannelByName(channelName);
+		if(!ch) return;
+		this.currentChannelName = ch.name;
+		this.currentChannelID = ch.id;
 		this.tui.requestClearContentBox(this);
-		this.tui.requestSetLabelOfContentBox(this, this.name + "/" + channelName);
+		this.tui.requestSetLabelOfContentBox(this, this.name + "/" + ch.name);
 		this.tui.requestLogToContentBox(this, "Loading...");
-		this.connection.reqAPI('channels.history', {channel: chid}, (data) => {
+		this.connection.reqAPI('channels.history', {channel: ch.id}, (data) => {
 			if(!data.ok) return;
 			this.tui.requestClearContentBox(this);
 			var messages = data.messages.map((e) => {

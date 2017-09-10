@@ -1,25 +1,24 @@
 #!/usr/local/bin/node
 var SlackChannel = (function () {
-    function SlackChannel(id) {
+    function SlackChannel(id, name) {
         this.id = id;
+        this.name = name;
     }
     SlackChannel.prototype.updateInfo = function (connection) {
-        /*
-        this.connection.reqAPI('channels.history', {channel: chid}, (data) => {
-            if(!data.ok) return;
-            this.tui.requestClearContentBox(this);
-            var messages = data.messages.map((e) => {
-                return (this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
-            }).reverse();
-            this.tui.requestLogToContentBox(this, messages.join("\n"));
+        var _this = this;
+        connection.reqAPI('channels.info', { channel: this.id }, function (data) {
+            if (!data.ok)
+                return;
+            _this.name = data.channel.name;
+            _this.unread_count = data.channel.unread_count;
         });
-         */
     };
     return SlackChannel;
 }());
 var SlackTeam = (function () {
     function SlackTeam(config, tui) {
         this.name = "";
+        this.channelList = [];
         this.tui = tui;
         this.name = config[1];
         this.token = config[0];
@@ -47,12 +46,13 @@ var SlackTeam = (function () {
             if (!data.ok)
                 return;
             _this.channelList = data.channels.map(function (e) {
-                return [e.name, e.id];
+                return new SlackChannel(e.id, e.name);
             });
             _this.channelSelectorList = [];
             for (var _i = 0, _a = _this.channelList; _i < _a.length; _i++) {
-                var t = _a[_i];
-                _this.channelSelectorList.push(t[0]);
+                var ch = _a[_i];
+                ch.updateInfo(_this.connection);
+                _this.channelSelectorList.push(ch.name);
             }
             _this.tui.requestUpdateChannelList(_this);
         });
@@ -73,23 +73,25 @@ var SlackTeam = (function () {
             _this.tui.requestUpdateUserList(_this);
         });
     };
+    SlackTeam.prototype.getChannelByName = function (channelName) {
+        for (var _i = 0, _a = this.channelList; _i < _a.length; _i++) {
+            var ch = _a[_i];
+            if (ch.name == channelName)
+                return ch;
+        }
+        return null;
+    };
     SlackTeam.prototype.selectChannel = function (channelName) {
         var _this = this;
-        var chid = null;
-        for (var _i = 0, _a = this.channelList; _i < _a.length; _i++) {
-            var t = _a[_i];
-            if (t[0] == channelName) {
-                chid = t[1];
-            }
-        }
-        if (!chid)
+        var ch = this.getChannelByName(channelName);
+        if (!ch)
             return;
-        this.currentChannelName = channelName;
-        this.currentChannelID = chid;
+        this.currentChannelName = ch.name;
+        this.currentChannelID = ch.id;
         this.tui.requestClearContentBox(this);
-        this.tui.requestSetLabelOfContentBox(this, this.name + "/" + channelName);
+        this.tui.requestSetLabelOfContentBox(this, this.name + "/" + ch.name);
         this.tui.requestLogToContentBox(this, "Loading...");
-        this.connection.reqAPI('channels.history', { channel: chid }, function (data) {
+        this.connection.reqAPI('channels.history', { channel: ch.id }, function (data) {
             if (!data.ok)
                 return;
             _this.tui.requestClearContentBox(_this);
