@@ -1,6 +1,8 @@
 # slack-tui
 TUI-based client for Slack
 
+[![asciicast](https://asciinema.org/a/140077.png)](https://asciinema.org/a/140077)
+
 ## Setup
 
 First, run `npm install -g slack-tui`
