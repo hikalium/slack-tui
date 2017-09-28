@@ -1,4 +1,6 @@
 # slack-tui
+[![npm version](https://badge.fury.io/js/slack-tui.svg)](https://badge.fury.io/js/slack-tui)
+
 TUI-based client for Slack
 
 [![asciicast](https://asciinema.org/a/140077.png)](https://asciinema.org/a/140077)
