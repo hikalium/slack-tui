@@ -1,4 +1,5 @@
 #!/usr/local/bin/node
+var notifier = require('node-notifier');
 var SlackChannel = (function () {
     function SlackChannel(id, name) {
         this.id = id;
@@ -13,7 +14,33 @@ var SlackChannel = (function () {
             _this.unread_count = data.channel.unread_count;
         });
     };
+    SlackChannel.prototype.updateHistory = function (connection, view, team) {
+        view.contentBox.setContent("");
+        view.contentBox.setLabel(team.name + "/" + this.name);
+        view.contentBox.log("Loading...");
+        connection.reqAPI('channels.history', { channel: this.id }, function (data) {
+            if (!data.ok)
+                return;
+            view.contentBox.setContent("");
+            var messages = data.messages.map(function (e) {
+                var head = (team.getUserName(e.user) + "          ").substr(0, 10);
+                return head + ":" + e.text;
+            }).reverse();
+            view.contentBox.log(messages.join("\n"));
+        });
+    };
     return SlackChannel;
+}());
+var SlackRTMData = (function () {
+    function SlackRTMData() {
+    }
+    SlackRTMData.getChannelId = function (data) {
+        if (data.type === "message") {
+            return data.channel;
+        }
+        return null;
+    };
+    return SlackRTMData;
 }());
 var SlackTeam = (function () {
     function SlackTeam(config, tui) {
@@ -35,6 +62,9 @@ var SlackTeam = (function () {
         var _this = this;
         this.connection.on('message', function (data) {
             // TODO: Improve performance (change to append new message only)
+            var chName = _this.getChannelNameById(SlackRTMData.getChannelId(data));
+            if (chName)
+                notifier.notify('New message on ' + _this.name + "/" + chName);
             if (!_this.tui.isTeamFocused(_this))
                 return;
             _this.selectChannel(_this.currentChannel.name);
@@ -73,6 +103,20 @@ var SlackTeam = (function () {
             _this.tui.requestUpdateUserList(_this);
         });
     };
+    SlackTeam.prototype.getChannelById = function (channelId) {
+        for (var _i = 0, _a = this.channelList; _i < _a.length; _i++) {
+            var ch = _a[_i];
+            if (ch.id == channelId)
+                return ch;
+        }
+        return null;
+    };
+    SlackTeam.prototype.getChannelNameById = function (channelId) {
+        var ch = this.getChannelById(channelId);
+        if (ch)
+            return ch.name;
+        return null;
+    };
     SlackTeam.prototype.getChannelByName = function (channelName) {
         for (var _i = 0, _a = this.channelList; _i < _a.length; _i++) {
             var ch = _a[_i];
@@ -82,23 +126,11 @@ var SlackTeam = (function () {
         return null;
     };
     SlackTeam.prototype.selectChannel = function (channelName) {
-        var _this = this;
         var ch = this.getChannelByName(channelName);
         if (!ch)
             return;
         this.currentChannel = ch;
-        this.tui.requestClearContentBox(this);
-        this.tui.requestSetLabelOfContentBox(this, this.name + "/" + ch.name);
-        this.tui.requestLogToContentBox(this, "Loading...");
-        this.connection.reqAPI('channels.history', { channel: ch.id }, function (data) {
-            if (!data.ok)
-                return;
-            _this.tui.requestClearContentBox(_this);
-            var messages = data.messages.map(function (e) {
-                return (_this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
-            }).reverse();
-            _this.tui.requestLogToContentBox(_this, messages.join("\n"));
-        });
+        ch.updateHistory(this.connection, this.tui.view, this);
     };
     SlackTeam.prototype.getUserName = function (userID) {
         for (var _i = 0, _a = this.userList; _i < _a.length; _i++) {

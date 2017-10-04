@@ -1,5 +1,7 @@
 #!/usr/local/bin/node
 
+const notifier = require('node-notifier');
+
 class SlackChannel
 {
 	id: string;
@@ -15,6 +17,30 @@ class SlackChannel
 			this.name = data.channel.name;
 			this.unread_count = data.channel.unread_count;
 		});
+	}
+	updateHistory(connection, view, team){
+		view.contentBox.setContent("");
+		view.contentBox.setLabel(team.name + "/" + this.name);
+		view.contentBox.log("Loading...");
+		connection.reqAPI('channels.history', {channel: this.id}, (data) => {
+			if(!data.ok) return;
+			view.contentBox.setContent("");
+			var messages = data.messages.map((e) => {
+				var head = (team.getUserName(e.user) + "          ").substr(0, 10);
+				return head + ":" + e.text;
+			}).reverse();
+			view.contentBox.log(messages.join("\n"));
+		});
+	}
+}
+
+class SlackRTMData
+{
+	static getChannelId(data){
+		if(data.type === "message"){
+			return data.channel;
+		}
+		return null;
 	}
 }
 
@@ -45,6 +71,8 @@ class SlackTeam
 	setRTMHandler() {
 		this.connection.on('message', (data) => {
 			// TODO: Improve performance (change to append new message only)
+			var chName = this.getChannelNameById(SlackRTMData.getChannelId(data));
+			if(chName) notifier.notify('New message on ' + this.name + "/" + chName);
 			if(!this.tui.isTeamFocused(this)) return;
 			this.selectChannel(this.currentChannel.name);
 		});
@@ -78,6 +106,19 @@ class SlackTeam
 			this.tui.requestUpdateUserList(this);
 		});
 	}
+	getChannelById(channelId: string): SlackChannel
+	{
+		for(var ch of this.channelList){
+			if(ch.id == channelId) return ch;
+		}
+		return null;
+	}
+	getChannelNameById(channelId: string): string
+	{
+		var ch = this.getChannelById(channelId);
+		if(ch) return ch.name;
+		return null;
+	}
 	getChannelByName(channelName: string): SlackChannel
 	{
 		for(var ch of this.channelList){
@@ -89,17 +130,7 @@ class SlackTeam
 		var ch = this.getChannelByName(channelName);
 		if(!ch) return;
 		this.currentChannel = ch;
-		this.tui.requestClearContentBox(this);
-		this.tui.requestSetLabelOfContentBox(this, this.name + "/" + ch.name);
-		this.tui.requestLogToContentBox(this, "Loading...");
-		this.connection.reqAPI('channels.history', {channel: ch.id}, (data) => {
-			if(!data.ok) return;
-			this.tui.requestClearContentBox(this);
-			var messages = data.messages.map((e) => {
-				return (this.getUserName(e.user) + "          ").substr(0, 10) + ":" + e.text;
-			}).reverse();
-			this.tui.requestLogToContentBox(this, messages.join("\n"));
-		});
+		ch.updateHistory(this.connection, this.tui.view, this);
 	}
 	getUserName(userID: string){
 		for(var u of this.userList){
