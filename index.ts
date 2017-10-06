@@ -4,18 +4,27 @@ const notifier = require('node-notifier');
 
 class SlackChannel
 {
+	team: SlackTeam;
 	id: string;
 	name: string;
 	unread_count: number;
-	constructor(id: string, name: string){
+	private updatingInfo: boolean = false;
+	constructor(team: SlackTeam, id: string, name: string){
+		this.team = team;
 		this.id = id;
 		this.name = name;
 	}
+	isUpdatingInfo(){
+		return this.updatingInfo;
+	}
 	updateInfo(connection){
+		this.updatingInfo = true;
 		connection.reqAPI('channels.info', {channel: this.id}, (data) => {
+			this.updatingInfo = false; 
 			if(!data.ok) return;
 			this.name = data.channel.name;
 			this.unread_count = data.channel.unread_count;
+			this.team.updateChannelListView();
 		});
 	}
 	updateHistory(connection, view, team){
@@ -31,6 +40,7 @@ class SlackChannel
 			}).reverse();
 			view.contentBox.log(messages.join("\n"));
 		});
+		this.updateInfo(connection);
 	}
 }
 
@@ -74,22 +84,32 @@ class SlackTeam
 			var chName = this.getChannelNameById(SlackRTMData.getChannelId(data));
 			if(chName) notifier.notify('New message on ' + this.name + "/" + chName);
 			if(!this.tui.isTeamFocused(this)) return;
-			this.selectChannel(this.currentChannel.name);
+			if(this.currentChannel) this.selectChannel(this.currentChannel.name);
 		});
 	}
 	channelSelectorList;
+	updateChannelListView(){
+		for(var ch of this.channelList){
+			if(ch.isUpdatingInfo()) return;
+		}
+		this.channelSelectorList = [];
+		for(var ch of this.channelList){
+			this.channelSelectorList.push(ch.name + "(" + ch.unread_count + ")");
+			log(ch.name + "(" + ch.unread_count + ")");
+		}
+		this.tui.requestUpdateChannelList(this);
+	}
 	private updateChannelList(){
 		this.connection.reqAPI('channels.list', {token: this.token}, (data) => {
 			if(!data.ok) return;
-			this.channelList = data.channels.map(function(e){
-				return new SlackChannel(e.id, e.name);
+			this.channelList = data.channels.map((e) => {
+				return new SlackChannel(this, e.id, e.name);
 			});
 			this.channelSelectorList = [];
 			for(var ch of this.channelList){
 				ch.updateInfo(this.connection);
-				this.channelSelectorList.push(ch.name);
 			}
-			this.tui.requestUpdateChannelList(this);
+			this.updateChannelListView();
 		});
 	}
 	userSelectorList;
@@ -126,8 +146,12 @@ class SlackTeam
 		}
 		return null;
 	}
+	private getCanonicalChannelName(str: string)
+	{
+		return str.replace(/\(.*\)/g, "");
+	}
 	selectChannel(channelName: string){
-		var ch = this.getChannelByName(channelName);
+		var ch = this.getChannelByName(this.getCanonicalChannelName(channelName));
 		if(!ch) return;
 		this.currentChannel = ch;
 		ch.updateHistory(this.connection, this.tui.view, this);
@@ -322,7 +346,7 @@ Use cursor keys to choose item.
 
 		this.teamBox.on('select', (el, selected) => {
 
-			var teamName = el.getText();
+			var teamName = this.tui.getCanonicalTeamName(el.getText());
 			this.tui.focusTeamByName(teamName);
 		});
 
@@ -384,10 +408,14 @@ class SlackTUI
 		}
 		this.refreshTeamList();
 	}
+	getCanonicalTeamName(str: string)
+	{
+		return str.replace(/\(.*\)/g, "");
+	}
 	refreshTeamList(){
 		var teamSelectorList = [];
 		for(var t of this.tokenList){
-			teamSelectorList.push(t[1]);
+			teamSelectorList.push(t[1] + "(*)");
 			var team = new SlackTeam(t, this);
 			this.teamDict[t[1]] = team;
 		}
@@ -399,11 +427,13 @@ class SlackTUI
 	}
 	requestUpdateChannelList(team: SlackTeam){
 		if(!this.isTeamFocused(team)) return;
+		if(!team.channelSelectorList) return;
 		this.view.channelBox.setItems(team.channelSelectorList);
 		this.view.screen.render();
 	}
 	requestUpdateUserList(team: SlackTeam){
 		if(!this.isTeamFocused(team)) return;
+		if(!team.userSelectorList) return;
 		this.view.userBox.setItems(team.userSelectorList);
 		this.view.screen.render();
 	}
@@ -422,9 +452,8 @@ class SlackTUI
 		this.view.contentBox.render();
 	}
 	focusTeamByName(teamName: string){
-		if(this.teamDict[teamName]){
-			this.focusedTeam = this.teamDict[teamName];
-		}
+		if(!this.teamDict[teamName]) return;
+		this.focusedTeam = this.teamDict[teamName];
 		this.requestUpdateChannelList(this.focusedTeam);
 		this.requestUpdateUserList(this.focusedTeam);
 	}
@@ -435,4 +464,8 @@ class SlackTUI
 }
 
 var slackTUI = new SlackTUI();
+
+var log = function(str){
+	slackTUI.view.contentBox.log(str);
+}
 
