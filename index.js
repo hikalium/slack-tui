@@ -2,19 +2,19 @@
 var notifier = require('node-notifier');
 var SlackChannel = (function () {
     function SlackChannel(team, id, name) {
-        this.updatingInfo = false;
+        this._isUpdatingInfo = false;
         this.team = team;
         this.id = id;
         this.name = name;
     }
     SlackChannel.prototype.isUpdatingInfo = function () {
-        return this.updatingInfo;
+        return this._isUpdatingInfo;
     };
     SlackChannel.prototype.updateInfo = function (connection) {
         var _this = this;
-        this.updatingInfo = true;
+        this._isUpdatingInfo = true;
         connection.reqAPI('channels.info', { channel: this.id }, function (data) {
-            _this.updatingInfo = false;
+            _this._isUpdatingInfo = false;
             if (!data.ok)
                 return;
             _this.name = data.channel.name;
@@ -86,13 +86,16 @@ var SlackTeam = (function () {
             if (ch.isUpdatingInfo())
                 return;
         }
-        this.channelSelectorList = [];
+        log("done: " + this.name);
+        var channelSelectorList = [];
         for (var _b = 0, _c = this.channelList; _b < _c.length; _b++) {
             var ch = _c[_b];
-            this.channelSelectorList.push(ch.name + "(" + ch.unread_count + ")");
-            log(ch.name + "(" + ch.unread_count + ")");
+            channelSelectorList.push(ch.name + "(" + ch.unread_count + ")");
         }
-        this.tui.requestUpdateChannelList(this);
+        if (!this.tui.isTeamFocused(this))
+            return;
+        this.tui.view.channelBox.setItems(channelSelectorList);
+        this.tui.view.screen.render();
     };
     SlackTeam.prototype.updateChannelList = function () {
         var _this = this;
@@ -100,13 +103,10 @@ var SlackTeam = (function () {
             if (!data.ok)
                 return;
             _this.channelList = data.channels.map(function (e) {
-                return new SlackChannel(_this, e.id, e.name);
-            });
-            _this.channelSelectorList = [];
-            for (var _i = 0, _a = _this.channelList; _i < _a.length; _i++) {
-                var ch = _a[_i];
+                var ch = new SlackChannel(_this, e.id, e.name);
                 ch.updateInfo(_this.connection);
-            }
+                return ch;
+            });
             _this.updateChannelListView();
         });
     };
@@ -396,14 +396,6 @@ var SlackTUI = (function () {
     SlackTUI.prototype.isTeamFocused = function (team) {
         return (this.focusedTeam === team);
     };
-    SlackTUI.prototype.requestUpdateChannelList = function (team) {
-        if (!this.isTeamFocused(team))
-            return;
-        if (!team.channelSelectorList)
-            return;
-        this.view.channelBox.setItems(team.channelSelectorList);
-        this.view.screen.render();
-    };
     SlackTUI.prototype.requestUpdateUserList = function (team) {
         if (!this.isTeamFocused(team))
             return;
@@ -433,7 +425,7 @@ var SlackTUI = (function () {
         if (!this.teamDict[teamName])
             return;
         this.focusedTeam = this.teamDict[teamName];
-        this.requestUpdateChannelList(this.focusedTeam);
+        this.focusedTeam.updateChannelListView();
         this.requestUpdateUserList(this.focusedTeam);
     };
     SlackTUI.prototype.sendMessage = function (text) {

@@ -8,19 +8,19 @@ class SlackChannel
 	id: string;
 	name: string;
 	unread_count: number;
-	private updatingInfo: boolean = false;
+	private _isUpdatingInfo: boolean = false;
 	constructor(team: SlackTeam, id: string, name: string){
 		this.team = team;
 		this.id = id;
 		this.name = name;
 	}
 	isUpdatingInfo(){
-		return this.updatingInfo;
+		return this._isUpdatingInfo;
 	}
 	updateInfo(connection){
-		this.updatingInfo = true;
+		this._isUpdatingInfo = true;
 		connection.reqAPI('channels.info', {channel: this.id}, (data) => {
-			this.updatingInfo = false; 
+			this._isUpdatingInfo = false; 
 			if(!data.ok) return;
 			this.name = data.channel.name;
 			this.unread_count = data.channel.unread_count;
@@ -87,28 +87,27 @@ class SlackTeam
 			if(this.currentChannel) this.selectChannel(this.currentChannel.name);
 		});
 	}
-	channelSelectorList;
 	updateChannelListView(){
 		for(var ch of this.channelList){
 			if(ch.isUpdatingInfo()) return;
 		}
-		this.channelSelectorList = [];
+		log("done: " + this.name);
+		var channelSelectorList = [];
 		for(var ch of this.channelList){
-			this.channelSelectorList.push(ch.name + "(" + ch.unread_count + ")");
-			log(ch.name + "(" + ch.unread_count + ")");
-		}
-		this.tui.requestUpdateChannelList(this);
+			channelSelectorList.push(ch.name + "(" + ch.unread_count + ")");
+		}	
+		if(!this.tui.isTeamFocused(this)) return;
+		this.tui.view.channelBox.setItems(channelSelectorList);
+		this.tui.view.screen.render();
 	}
 	private updateChannelList(){
 		this.connection.reqAPI('channels.list', {token: this.token}, (data) => {
 			if(!data.ok) return;
 			this.channelList = data.channels.map((e) => {
-				return new SlackChannel(this, e.id, e.name);
-			});
-			this.channelSelectorList = [];
-			for(var ch of this.channelList){
+				var ch = new SlackChannel(this, e.id, e.name);
 				ch.updateInfo(this.connection);
-			}
+				return ch;
+			});
 			this.updateChannelListView();
 		});
 	}
@@ -425,12 +424,6 @@ class SlackTUI
 	isTeamFocused(team: SlackTeam){
 		return (this.focusedTeam === team);
 	}
-	requestUpdateChannelList(team: SlackTeam){
-		if(!this.isTeamFocused(team)) return;
-		if(!team.channelSelectorList) return;
-		this.view.channelBox.setItems(team.channelSelectorList);
-		this.view.screen.render();
-	}
 	requestUpdateUserList(team: SlackTeam){
 		if(!this.isTeamFocused(team)) return;
 		if(!team.userSelectorList) return;
@@ -454,7 +447,7 @@ class SlackTUI
 	focusTeamByName(teamName: string){
 		if(!this.teamDict[teamName]) return;
 		this.focusedTeam = this.teamDict[teamName];
-		this.requestUpdateChannelList(this.focusedTeam);
+		this.focusedTeam.updateChannelListView();
 		this.requestUpdateUserList(this.focusedTeam);
 	}
 	sendMessage(text: string){
