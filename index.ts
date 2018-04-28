@@ -2,7 +2,14 @@
 
 const notifier = require('node-notifier');
 
-class SlackChannel
+interface SlackConversation
+{
+	updateContent();
+	postMessage(text: string);
+	getID(): string;
+}
+
+class SlackChannel implements SlackConversation
 {
 	team: SlackTeam;
 	id: string;
@@ -27,20 +34,47 @@ class SlackChannel
 			this.team.updateChannelListView();
 		});
 	}
-	updateHistory(connection, view, team){
-		view.contentBox.setContent("");
-		view.contentBox.setLabel(team.name + "/" + this.name);
-		view.contentBox.log("Loading...");
-		connection.reqAPI('channels.history', {channel: this.id}, (data) => {
-			if(!data.ok) return;
-			view.contentBox.setContent("");
-			var messages = data.messages.map((e) => {
-				var head = (team.getUserName(e.user) + "          ").substr(0, 10);
-				return head + ":" + e.text;
-			}).reverse();
-			view.contentBox.log(messages.join("\n"));
-		});
-		this.updateInfo(connection);
+	updateContent(){
+		this.team.updateContent(this.id, "#" + this.name);
+	}
+	postMessage(text: string){
+		this.team.postMessage(this.id, text);
+	}
+	getID(){
+		return this.id;
+	}
+}
+
+class SlackDM implements SlackConversation
+{
+	team: SlackTeam;
+	id: string;
+	name: string;
+	constructor(team: SlackTeam, id: string, name: string){
+		this.team = team;
+		this.id = id;
+		this.name = name;
+	}
+	updateContent(){
+		this.team.updateContent(this.id, "@" + this.name);
+	}
+	postMessage(text: string){
+		this.team.postMessage(this.id, text);
+	}
+	getID(){
+		return this.id;
+	}
+}
+
+class SlackUser
+{
+	team: SlackTeam;
+	id: string;
+	name: string;
+	constructor(team: SlackTeam, id: string, name: string){
+		this.team = team;
+		this.id = id;
+		this.name = name;
 	}
 }
 
@@ -60,9 +94,9 @@ class SlackTeam
 	name: string = "";
 	connection;
 	channelList: SlackChannel[] = [];
-	currentChannel: SlackChannel;
+	currentConversation: SlackConversation;
 	token: string;
-	userList;
+	userList: SlackUser[];
 	tui: SlackTUI;
 	constructor(config, tui: SlackTUI)
 	{
@@ -80,11 +114,13 @@ class SlackTeam
 	}
 	setRTMHandler() {
 		this.connection.on('message', (data) => {
-			// TODO: Improve performance (change to append new message only)
-			var chName = this.getChannelNameById(SlackRTMData.getChannelId(data));
-			if(chName) notifier.notify('New message on ' + this.name + "/" + chName);
-			if(!this.tui.isTeamFocused(this)) return;
-			if(this.currentChannel) this.selectChannel(this.currentChannel.name);
+			this.tui.view.contentBox.log(JSON.stringify(data) + "\n");
+			var channel_id = SlackRTMData.getChannelId(data);
+			if(this.currentConversation && this.currentConversation.getID() === channel_id){
+				// TODO: Improve performance (change to append new message only)
+				this.currentConversation.updateContent();
+			}
+			notifier.notify('New message on ' + this.name);
 		});
 	}
 	updateChannelListView(){
@@ -116,11 +152,11 @@ class SlackTeam
 		this.connection.reqAPI('users.list', {token: this.token}, (data) => {
 			if(!data.ok) return;
 			this.userList = data.members.map(function(e){
-				return [e.name, e.id];
+				return new SlackUser(this, e.id, e.name);
 			});
 			this.userSelectorList = [];
-			for(var t of this.userList){
-				this.userSelectorList.push(t[0]);
+			for(var u of this.userList){
+				this.userSelectorList.push("@" + u.name);
 			}
 			this.tui.requestUpdateUserList(this);
 		});
@@ -130,12 +166,6 @@ class SlackTeam
 		for(var ch of this.channelList){
 			if(ch.id == channelId) return ch;
 		}
-		return null;
-	}
-	getChannelNameById(channelId: string): string
-	{
-		var ch = this.getChannelById(channelId);
-		if(ch) return ch.name;
 		return null;
 	}
 	getChannelByName(channelName: string): SlackChannel
@@ -152,26 +182,61 @@ class SlackTeam
 	selectChannel(channelName: string){
 		var ch = this.getChannelByName(this.getCanonicalChannelName(channelName));
 		if(!ch) return;
-		this.currentChannel = ch;
-		ch.updateHistory(this.connection, this.tui.view, this);
+		this.currentConversation = ch;
+		ch.updateContent();
 	}
 	getUserName(userID: string){
 		for(var u of this.userList){
-			if(u[1] === userID) return u[0];
+			if(u.id === userID) return u.name;
 		}
 		return null;
 	}
 	sendMessage(text: string){
-		if(!this.currentChannel) return;
-		this.postMessage(this.currentChannel.id, text);
+		if(!this.currentConversation) return;
+		this.currentConversation.postMessage(text);
 	}
-	private postMessage(channelID, text){
+	postMessage(channelID, text){
 		var data: any = new Object();
 		data.text = text;
 		data.channel = channelID;
 		data.as_user = true;
 		// APIのchat.postMessageを使ってメッセージを送信する
 		this.connection.reqAPI("chat.postMessage", data);
+	}
+	updateContent(id, name_for_id){
+		var view = this.tui.view;
+		var connection = this.connection;
+		view.contentBox.setContent("");
+		view.contentBox.setLabel(this.name + "/" + name_for_id);
+		view.contentBox.log(`Loading ${name_for_id}(${id}) ...`);
+		connection.reqAPI('conversations.history', {channel: id}, (data) => {
+			if(!data.ok){
+				view.contentBox.log("Failed: " + JSON.stringify(data) + "\n");
+				return;
+			}
+			view.contentBox.setContent("");
+			var messages = data.messages.map((e) => {
+				var head = (this.getUserName(e.user) + "          ").substr(0, 10);
+				return head + ":" + e.text;
+			}).reverse();
+			view.contentBox.log(messages.join("\n"));
+		});
+	}
+	openIM(user_id, name_for_id){
+		var view = this.tui.view;
+		var connection = this.connection;
+		view.contentBox.setContent("");
+		view.contentBox.setLabel(this.name + "/@" + name_for_id);
+		view.contentBox.log(`Opening IM with @${name_for_id}(${user_id}) ...`);
+		connection.reqAPI('im.open', {user: user_id}, (data) => {
+			if(!data.ok){
+				view.contentBox.log("Failed: " + JSON.stringify(data) + "\n");
+				return;
+			}
+			var channel_id = data.channel.id;
+			this.currentConversation = new SlackDM(this, channel_id, name_for_id);
+			this.currentConversation.updateContent();
+		});
 	}
 }
 
@@ -344,16 +409,22 @@ Use cursor keys to choose item.
 		});
 
 		this.teamBox.on('select', (el, selected) => {
-
 			var teamName = this.tui.getCanonicalTeamName(el.getText());
 			this.tui.focusTeamByName(teamName);
 		});
 
 		this.channelBox.on('select', (el, selected) => {
-			//contentBox.log(el.getText());
 			this.tui.focusedTeam.selectChannel(el.getText());
 		});
 
+		this.userBox.on('select', (el, selected) => {
+			var index = this.userBox.getItemIndex(el);
+			if(!this.tui.focusedTeam) return;
+			var u: SlackUser = this.tui.focusedTeam.userList[index];
+			if(u){
+				this.tui.focusedTeam.openIM(u.id, u.name)
+			}
+		});
 
 		this.screen.key(['C-c'], (ch, key) => {
 			return process.exit(0);
@@ -367,6 +438,9 @@ Use cursor keys to choose item.
 			this.channelBox.focus();
 		});
 		this.channelBox.key(['tab'], (ch, key) => {
+			this.userBox.focus();
+		});
+		this.userBox.key(['tab'], (ch, key) => {
 			this.inputBox.focus();
 		});
 		this.inputBox.key(['tab'], (ch, key) =>  {
