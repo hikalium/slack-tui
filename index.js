@@ -73,6 +73,7 @@ var SlackTeam = /** @class */ (function () {
     function SlackTeam(config, tui) {
         this.name = "";
         this.channelList = [];
+        this.isNotificationSuppressed = false;
         this.tui = tui;
         this.name = config[1];
         this.token = config[0];
@@ -94,7 +95,9 @@ var SlackTeam = /** @class */ (function () {
                 // TODO: Improve performance (change to append new message only)
                 _this.currentConversation.updateContent();
             }
-            notifier.notify('New message on ' + _this.name);
+            if (!_this.isNotificationSuppressed) {
+                notifier.notify('New message on ' + _this.name);
+            }
         });
     };
     SlackTeam.prototype.updateChannelListView = function () {
@@ -183,10 +186,13 @@ var SlackTeam = /** @class */ (function () {
         this.currentConversation.postMessage(text);
     };
     SlackTeam.prototype.postMessage = function (channelID, text) {
+        var _this = this;
         var data = new Object();
         data.text = text;
         data.channel = channelID;
         data.as_user = true;
+        this.isNotificationSuppressed = true;
+        setTimeout(function () { _this.isNotificationSuppressed = false; }, 1000);
         // APIのchat.postMessageを使ってメッセージを送信する
         this.connection.reqAPI("chat.postMessage", data);
     };

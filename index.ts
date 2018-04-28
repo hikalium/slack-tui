@@ -98,6 +98,7 @@ class SlackTeam
 	token: string;
 	userList: SlackUser[];
 	tui: SlackTUI;
+	isNotificationSuppressed: boolean = false;
 	constructor(config, tui: SlackTUI)
 	{
 		this.tui = tui;
@@ -120,7 +121,9 @@ class SlackTeam
 				// TODO: Improve performance (change to append new message only)
 				this.currentConversation.updateContent();
 			}
-			notifier.notify('New message on ' + this.name);
+			if(!this.isNotificationSuppressed){
+				notifier.notify('New message on ' + this.name);
+			}
 		});
 	}
 	updateChannelListView(){
@@ -200,6 +203,9 @@ class SlackTeam
 		data.text = text;
 		data.channel = channelID;
 		data.as_user = true;
+
+		this.isNotificationSuppressed = true;
+		setTimeout(()=>{ this.isNotificationSuppressed = false; }, 1000);
 		// APIのchat.postMessageを使ってメッセージを送信する
 		this.connection.reqAPI("chat.postMessage", data);
 	}
