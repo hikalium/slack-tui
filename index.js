@@ -388,6 +388,8 @@ var SlackTUIView = /** @class */ (function () {
             _this.tui.focusTeamByName(teamName);
         });
         this.channelBox.on('select', function (el, selected) {
+            if (!_this.tui.focusedTeam)
+                return;
             _this.tui.focusedTeam.selectChannel(el.getText());
         });
         this.userBox.on('select', function (el, selected) {
