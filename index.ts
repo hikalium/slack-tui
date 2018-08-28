@@ -420,6 +420,7 @@ Use cursor keys to choose item.
 		});
 
 		this.channelBox.on('select', (el, selected) => {
+			if(!this.tui.focusedTeam) return;
 			this.tui.focusedTeam.selectChannel(el.getText());
 		});
 
