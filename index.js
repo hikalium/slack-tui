@@ -1,4 +1,4 @@
-#!/usr/local/bin/node
+#!/usr/bin/env node
 var notifier = require('node-notifier');
 var SlackChannel = /** @class */ (function () {
     function SlackChannel(team, id, name) {
